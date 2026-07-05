@@ -9,6 +9,10 @@ app.use(cors({
     credentials: true,
 }));
 
+app.get("/health", (req, res) => {
+    res.status(200).send("OK");
+});
+
 import aiRouter from "./routes/ai.router.js";
 app.use("/api/v1/request-gpt",aiRouter)
 
