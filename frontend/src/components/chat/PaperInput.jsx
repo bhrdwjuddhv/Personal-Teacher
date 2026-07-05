@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-export default function PaperInput({ onSubmit, disabled }) {
+export default function PaperInput({ onSubmit, disabled, label }) {
   const [expanded, setExpanded] = useState(false)
   const [value, setValue] = useState('')
   const textareaRef = useRef(null)
@@ -52,7 +52,7 @@ export default function PaperInput({ onSubmit, disabled }) {
             disabled={disabled || !value.trim()}
             className="karla-text rounded-full bg-stone-800 px-5 py-1.5 text-sm font-semibold text-amber-200 transition disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {disabled ? 'thinking…' : 'Submit'}
+            {label ?? (disabled ? 'thinking…' : 'Submit')}
           </button>
         </div>
       </form>

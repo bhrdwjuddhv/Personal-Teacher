@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { DEFAULT_TEACHER } from '../data/teachers.js'
 import { useChatHistory } from '../hooks/useChatHistory.js'
 import { useWordReveal } from '../hooks/useWordReveal.js'
-import { askTeacher } from '../api/askTeacher.js'
+import { useCountdown } from '../hooks/useCountdown.js'
+import { askTeacher, RateLimitError } from '../api/askTeacher.js'
+import { getRateLimitMessage } from '../data/rateLimitMessages.js'
 import Blackboard from '../components/chat/Blackboard.jsx'
 import StickmanDisplay from '../components/chat/StickmanDisplay.jsx'
 import PinBoard from '../components/chat/PinBoard.jsx'
@@ -16,10 +18,13 @@ const RECENT_TURNS = 8
 export default function ChatPage() {
   const [teacherId, setTeacherId] = useState(DEFAULT_TEACHER)
   const [status, setStatus] = useState('idle') // idle | thinking | teaching
+  const [rateLimitedUntil, setRateLimitedUntil] = useState(null)
   const { history, appendEntry } = useChatHistory(teacherId)
   const { revealedText, start } = useWordReveal()
+  const rateLimitSecondsLeft = useCountdown(rateLimitedUntil)
 
   const isBusy = status !== 'idle'
+  const isRateLimited = rateLimitSecondsLeft > 0
 
   const handleSelectTeacher = (id) => {
     if (isBusy || id === teacherId) return
@@ -34,8 +39,13 @@ export default function ChatPage() {
     try {
       const recentHistory = history.slice(-RECENT_TURNS)
       answer = await askTeacher(teacherId, question, recentHistory)
-    } catch {
-      appendEntry({ role: 'teacher', text: "Ugh, couldn't reach the backend. Try again in a bit." })
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        setRateLimitedUntil(Date.now() + err.retryAfterSeconds * 1000)
+        appendEntry({ role: 'teacher', text: getRateLimitMessage(teacherId, err.retryAfterSeconds) })
+      } else {
+        appendEntry({ role: 'teacher', text: "Ugh, couldn't reach the backend. Try again in a bit." })
+      }
       setStatus('idle')
       return
     }
@@ -75,7 +85,11 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <PaperInput onSubmit={handleSubmit} disabled={isBusy} />
+      <PaperInput
+        onSubmit={handleSubmit}
+        disabled={isBusy || isRateLimited}
+        label={isRateLimited ? `wait ${rateLimitSecondsLeft}s` : undefined}
+      />
     </div>
   )
 }
